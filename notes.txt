@@ -1,0 +1,55 @@
+EXPLOIT
+semplice rop tramite buffer overflow 
+ovviamente per fare rop do per scontato di avere l'eseguibile (magari preso tramite un altro exploit come ad esempio rce-apache o qualche altro, non importa molto) e importante bisogna prima leakare la versione della libc usata dal server (e possibilmente il linker) entrambe tramite leak della versione di linux usata tramite comando ldd qualcosa --version, questo in modo da avere lo stesso setup del server in locale e la stessa identica libreria, altrimenti l'exploit non funziona
+
+Inoltre per abilitare/disabilitare aslr (randomizza la libc) bisogna farlo dall'host e non dal container visto che il container si basa sul kernel dell'host.
+
+Address space randomization is disabled by default on pwngdb, so in gdb do:
+>> set disable-randomization off
+
+Stack Layout:
+[buffer] ---------> 32 bytes  -  low addr 
+[canary] ---------> 4 bytes         ^
+[some junk] ------> 12 bytes        |
+[return address] -> 4 bytes   -  high addr
+
+Run PHP server on container
+>> php -S <server-lan-ip>:8080 &
+
+Get PHP version of server:
+>> curl --head 192.168.1.152:5555 /
+X-Powered-By: PHP/7.4.3-4ubuntu2.28
+
+PHP version to Ubuntu version:
+https://www.ubuntuupdates.org/package/core/focal/main/security/php7.4
+
+Ubuntu version to libc version map:
+https://gist.github.com/richardlau/6a01d7829cc33ddab35269dacc127680
+
+Quindi per conoscere l'esatta versione della libc usata dal server basta leggere l'header 'X-Powered-By' del server (che quindi deve per forza runnare un server php) da cui si ottiene la versione PHP da cui si ottiene la versione di Ubuntu da cui si ottiene la versione della libc (tramite i link sopra)
+
+Get used libc.so.6 path on server:
+>> ldd -v ./main
+libc.so.6 => /lib32/libc.so.6 (0xead18000)
+
+Download the same libc:
+>> curl -O 'http://archive.ubuntu.com/ubuntu/pool/main/g/glibc/libc6-i386_2.31-0ubuntu9.16_amd64.deb'
+Extract the package:
+>> dpkg-deb -xv libc6-i386_2.31-0ubuntu9.16_amd64.deb ./libc
+The libc-2.31.so file will be at ./libc/lib32/libc-2.31.so
+We can also confront the SHA of the two libcs with the file command
+It just needs to be renamed to libc.so.6
+If i need to, i can also use the same intepreter as the server, i can find it at ./libc/lib/ld-linux.so.2
+
+DOCKER 
+Docker container must run with an IP of the same network as the host in order for the nmap -O to work:
+>> docker run -p 8080:8080 --network=host -it rop-server
+
+Server is then run with: 
+>> ncat -lvk -p 5555 -e ./main 
+
+FIND "/bin/sh" WITH GDB:
+>> find &system,+9999999,"/bin/sh"
+
+USEFUL LINKS
+https://codingvision.net/bypassing-aslr-dep-getting-shells-with-pwntools
