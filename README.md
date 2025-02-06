@@ -2,6 +2,8 @@
 
 Showcase of an example of OWASP A06 "Vulnerable and Outdated Components" via a web service using a C library vulnerable to Buffer Overflow
 
+<br />
+
 ## Server
 
 The vulnerable server runs in a docker container, the image can be created using the Dockerfile, running this in the same folder of it:
@@ -24,6 +26,7 @@ PHP server setup:
 apt install php
 php -S <server-ip>:8080 &
 ```
+<br />
 
 ## Exploit
 
